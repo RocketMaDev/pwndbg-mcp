@@ -33,6 +33,10 @@ async def read_from_process(size: int = 1024, timeout: float = 1.0) -> str:
     return await tools.read_from_process(size, timeout)
 
 @mcp.tool()
+async def interrupt_process() -> str:
+    return await tools.interrupt_process()
+
+@mcp.tool()
 async def pwndbg_status() -> str:
     return await tools.pwndbg_status()
 

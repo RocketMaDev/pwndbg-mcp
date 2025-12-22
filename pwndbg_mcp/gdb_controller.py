@@ -97,7 +97,6 @@ class AsyncGdbController:
             lambda: self._controller.write(command, timeout_sec=timeout_sec),
         )
 
-        logging.info(responses)
         parsed_responses = [
             GdbResponse(
                 type=r.get("type"),
@@ -107,6 +106,8 @@ class AsyncGdbController:
             )
             for r in responses
         ]
+        for r in responses:
+            logger.info(f'MESSAGE: {r}')
 
         # Error handling
         if raise_error:
@@ -133,6 +134,19 @@ class AsyncGdbController:
             lambda: os.write(self._pty_master, data.encode())
         )
         logger.debug(f"Sent to process: {data!r}")
+
+    async def interrupt_process(self) -> None:
+        """Interrupt target process by sending \\x03 to pty
+        """
+        if not self._pty_master:
+            raise RuntimeError("PTY not available")
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: os.write(self._pty_master, b'\x03')
+        )
+        logger.debug('Interrupting process')
 
     async def read_from_process(self, size: int = 4096, timeout: int = 5000) -> str | None:
         """Read data from the target process through PTY using poll.

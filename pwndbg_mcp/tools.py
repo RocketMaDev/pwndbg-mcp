@@ -82,6 +82,13 @@ async def read_from_process(size: int = 1024, timeout: float = 1.0) -> str:
     data = await gdb.read_from_process(size, timeout)
     return ToonFormatter.format_simple(data)
 
+async def interrupt_process() -> str:
+    """Interrupt target process through PTY.
+    """
+    gdb = await may_start_gdb()
+    await gdb.interrupt_process()
+    return ToonFormatter.format_simple('Interrupt request sent')
+
 async def pwndbg_status() -> str:
     gdb = await may_start_gdb()
     if gdb.state is GdbState.DEAD:

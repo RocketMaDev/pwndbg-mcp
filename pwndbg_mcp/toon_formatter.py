@@ -19,25 +19,15 @@ class ToonFormatter:
             TOON-formatted string
         """
         # Extract console output
-        console_output = []
-        result_data = None
-
-        for resp in responses:
-            if resp.type in ("console", "log", "target") and resp.payload:
-                console_output.append(resp.payload)
-            elif resp.type == "result" and resp.payload:
-                result_data = resp.payload
-
-        output_text = "".join(console_output)
 
         # Format using TOON
         result = {
             "command": command,
-            "output": output_text
+            "output": [
+                { 'type': r.mitype, 'msg': r.message }
+                for r in responses
+            ],
         }
-
-        if result_data:
-            result["data"] = result_data
 
         return encode(result)
 
@@ -51,4 +41,4 @@ class ToonFormatter:
         Returns:
             TOON-formatted string
         """
-        return encode({"output": text})
+        return encode(text)

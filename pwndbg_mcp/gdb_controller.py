@@ -8,22 +8,34 @@ import select
 import pty
 from hexdump import hexdump
 from enum import StrEnum
+import re
+ANSI_COLOR_RE = re.compile(r'\x1b\[[0-9;]*m')
 
 logger = logging.getLogger(__name__)
 
 class GdbState(StrEnum):
-    DEAD = 'Uninitialized'
+    DEAD    = 'Uninitialized'
     STOPPED = 'Stopped'
     RUNNING = 'Running'
 
+class GdbMIType(StrEnum):
+    NOTIFY  = 'notify'
+    CONSOLE = 'console'
+    LOG     = 'log'
+    RESULT  = 'result'
+    TARGET  = 'target'
 
 @dataclass
 class GdbResponse:
     """Parsed GDB/MI response."""
-    type: str  # result/console/log/notify/target
-    message: str | None
-    payload: dict[str, any] | None
-    token: int | None
+    mitype: GdbMIType
+    message: str | dict | None
+
+    def __init__(self, mitype: str, message: str | None, payload: dict | str | None) -> None:
+        self.mitype = GdbMIType(mitype)
+        self.message = message if message else payload
+        if isinstance(self.message, str): # strip color
+            self.message = ANSI_COLOR_RE.sub('', self.message)
 
 
 class AsyncGdbController:
@@ -99,20 +111,36 @@ class AsyncGdbController:
 
         parsed_responses = [
             GdbResponse(
-                type=r.get("type"),
+                mitype=r.get("type"),
                 message=r.get("message"),
                 payload=r.get("payload"),
-                token=r.get("token"),
             )
             for r in responses
         ]
-        for r in responses:
-            logger.info(f'MESSAGE: {r}')
+        cache = ''
+        pop_list = []
+        for i, r in enumerate(parsed_responses):
+            if r.mitype is GdbMIType.CONSOLE and not r.message.endswith('\n'):
+                cache += r.message
+                pop_list.append(i)
+            if r.mitype is GdbMIType.CONSOLE and r.message.endswith('\n'):
+                if cache:
+                    r.message = cache + r.message
+                    cache = ''
+                r.message = r.message.strip()
+        if cache:
+            parsed_responses[pop_list[-1]].message = cache.strip()
+            pop_list.pop(-1)
+        for i in pop_list:
+            parsed_responses.pop(i)
+
+        for r in parsed_responses:
+            logger.info(f'MSG: {r}')
 
         # Error handling
         if raise_error:
             for resp in parsed_responses:
-                if resp.type == "result" and resp.message == "error":
+                if resp.mitype == "result" and resp.message == "error":
                     error_msg = resp.payload.get("msg", "Unknown GDB error") if resp.payload else "Unknown GDB error"
                     raise Exception(f"GDB error: {error_msg}")
 

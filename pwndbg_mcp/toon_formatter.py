@@ -1,7 +1,6 @@
-"""TOON formatter for GDB outputs."""
-
 from toon_format import encode
 from pwndbg_mcp.gdb_controller import GdbResponse
+from typing import Any
 
 
 class ToonFormatter:
@@ -32,7 +31,7 @@ class ToonFormatter:
         return encode(result)
 
     @staticmethod
-    def format_simple(text: str) -> str:
+    def format_simple(text: Any) -> str:
         """Format simple text output as TOON.
 
         Args:

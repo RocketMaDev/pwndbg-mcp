@@ -66,11 +66,12 @@ class AsyncGdbController:
         self.poller = select.poll()
         self.poller.register(self._pty_master, select.EPOLLIN)
         # Start GDB
+        command = [self.gdb_path, *self.gdb_args, '-ex', f'set inferior-tty {self._pty_name}']
+        print(command)
         loop = asyncio.get_event_loop()
         self._controller = await loop.run_in_executor(
             self._executor,
-            lambda: GdbController(command=[self.gdb_path, *self.gdb_args,
-                                           '-ex', f'set inferior-tty {self._pty_name}']),
+            lambda: GdbController(command=command),
         )
         self.state = GdbState.STOPPED
         logger.info(f"GDB started with PTY: {self._pty_name}")
@@ -147,7 +148,7 @@ class AsyncGdbController:
         return parsed_responses
 
 
-    async def send_to_process(self, data: str) -> None:
+    async def send_to_process(self, data: bytes) -> None:
         """Send data to the target process through PTY.
 
         Args:
@@ -159,9 +160,9 @@ class AsyncGdbController:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
             None,
-            lambda: os.write(self._pty_master, data.encode())
+            lambda: os.write(self._pty_master, data)
         )
-        logger.debug(f"Sent to process: {data!r}")
+        logger.debug(f"Sent to process: {data}")
 
     async def interrupt_process(self) -> None:
         """Interrupt target process by sending \\x03 to pty

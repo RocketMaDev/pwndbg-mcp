@@ -1,6 +1,6 @@
 import argparse
 from typing import cast
-from pwndbg_mcp import server, tools
+from pwndbg_mcp import tools
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='pwndbg-mcp: MCP server for pwndbg debugging')
@@ -12,14 +12,18 @@ if __name__ == '__main__':
         help='Port for HTTP/SSE modes (default: 8780)')
     parser.add_argument('--pwndbg', '-b', default='gdb',
         help='pwndbg binary to launch (default: gdb)')
+    parser.add_argument('--unsafe', '-U', action='store_true',
+        help='Allow mcp to run eval() to send request like pwntools, '
+             'ONLY ENABLE THIS IF YOU DID ISOLATION!')
     args = parser.parse_args()
-    tools.gdb_path = args.pwndbg
     cast(str, args.transport)
+    cast(bool, args.unsafe)
+    tools.gdb_path = args.pwndbg
 
     match args.transport:
         case 'stdio':
-            server.launch_mcp(args.transport)
+            tools.launch_mcp(args.transport, unsafe=args.unsafe)
         case 'http' | 'sse':
-            server.launch_mcp(args.transport, args.host, args.port)
+            tools.launch_mcp(args.transport, args.host, args.port, unsafe=args.unsafe)
         case trans:
             assert not f'Unknown transport {trans}'

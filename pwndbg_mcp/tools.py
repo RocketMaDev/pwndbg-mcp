@@ -1,5 +1,5 @@
 import logging
-from pwndbg_mcp.gdb_controller import AsyncGdbController
+from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState
 from pwndbg_mcp.toon_formatter import ToonFormatter
 from pwn import *
 
@@ -20,14 +20,19 @@ gdb_path: str = None
 
 async def may_start_gdb() -> AsyncGdbController:
     global _gdb_controller
+    # start if need or restart if dead
     if _gdb_controller is None:
+        _gdb_controller = AsyncGdbController(gdb_path)
+        await _gdb_controller.start()
+    if _gdb_controller.state is GdbState.DEAD:
+        await _gdb_controller.close()
         _gdb_controller = AsyncGdbController(gdb_path)
         await _gdb_controller.start()
     return _gdb_controller
 
 
 # GDB controller part
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def load_executable(executable_path: str, args: list[str] | None = None) -> str:
     """Load an executable file into GDB and set up PTY for process I/O.
 
@@ -67,7 +72,7 @@ async def execute_command(command: str) -> str:
 
 
 # process controller part
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def send_to_process(data: str) -> str:
     """Send data to the target process through PTY in raw mode.
 
@@ -85,7 +90,7 @@ async def send_to_process(data: str) -> str:
     await gdb.send_to_process(tosend)
     return ToonFormatter.format_simple(f"Sent {len(data)} bytes to process")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def eval_to_send_to_process(statement: str) -> str:
     """Given `statement`, evaluate it in Python and `bytes()` it,
     then send to process. This tool is not that safe.
@@ -114,8 +119,8 @@ async def eval_to_send_to_process(statement: str) -> str:
     return ToonFormatter.format_simple({'status': 'success',
             'detail': str(result)})
 
-@mcp.tool()
-async def read_from_process(size: int = 1024, timeout: float = 1.0) -> str:
+@mcp.tool(output_schema=None)
+async def read_from_process(size: int = 1024, timeout: int = 5) -> str:
     """Read data from the target process through PTY.
 
     Args:
@@ -136,7 +141,7 @@ CTRL_MAP = {
     'C-d': (b'\x04', 'EOF'),
     'C-z': (b'\x1a', 'SIGTSTP'),
 }
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def interrupt_process(ctrl: str | None = None) -> str:
     """Interrupt target process through PTY. Equivalent to press Ctrl-C
 
@@ -151,7 +156,7 @@ async def interrupt_process(ctrl: str | None = None) -> str:
 
     return ToonFormatter.format_simple({'error': 'No such ctrl char'})
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def pwndbg_status() -> str:
     """Return gdb status
 
@@ -165,7 +170,7 @@ async def pwndbg_status() -> str:
 ###########################################################
 # some aliases
 ###########################################################
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def list_pwndbg_commands() -> str:
     """If you don't know all pwndbg commands, run this tool first to
     explore pwndbg commands usages. If you find any interesting command not
@@ -173,11 +178,11 @@ async def list_pwndbg_commands() -> str:
     by `execute_command` directly.
 
     Return:
-        pwndbg commands list
+        pwndbg commands list or null if pwndbg waiting
     """
     return await execute_command("pwndbg --all")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def telescope(statement: str, count: int = 10) -> str:
     """Examine given address `statement` with `count` words,
     dereference pointers if valid.
@@ -187,11 +192,11 @@ async def telescope(statement: str, count: int = 10) -> str:
         count: words to deref
 
     Returns:
-        derefing address block results
+        derefing address block results or null if pwndbg waiting
     """
     return await execute_command(f"telescope {statement} {count}")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def context(subsection: str | None = None) -> str:
     """Display pwndbg section with `subsection` or leave it to null
     to display default context defined by `context-sections`.
@@ -201,57 +206,57 @@ async def context(subsection: str | None = None) -> str:
         'code', 'stack', 'backtrace', 'ghidra', 'args', 'threads', 'heap_tracker',
         'expressions', 'last_signal'
     Returns:
-        program context
+        program context or null if pwndbg waiting
     """
     if subsection is None:
         return await execute_command("context")
     return await execute_command(f"context {subsection}")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def heap() -> str:
     """Examine heap with pwndbg
 
     Returns:
-        overall heap status
+        overall heap status or null if pwndbg waiting
     """
     return await execute_command("heap")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def bins() -> str:
     """Examine available chunks with pwndbg command bins
 
     Returns:
-        overall bins status
+        overall bins status or null if pwndbg waiting
     """
     return await execute_command("bins")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def backtrace() -> str:
     """Display program function backtrace
 
     Returns:
-        gdb backtrace view
+        gdb backtrace view or null if pwndbg waiting
     """
     return await execute_command("backtrace")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def procinfo() -> str:
     """Display current process infomation
 
     Returns:
-        process info including pid, opened fd, etc
+        process info including pid, opened fd, etc or null if pwndbg waiting
     """
     return await execute_command("procinfo")
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def vmmap() -> str:
     """Display current program memory layout
 
     Returns:
-        maps layout
+        maps layout or null if pwndbg waiting
     """
     return await execute_command("vmmap")
 
 def launch_mcp(mode: str, host: str | None = None, port: int | None = None):
-    mcp.tool(execute_command)
+    mcp.tool(execute_command, output_schema=None)
     mcp.run(mode, host=host, port=port)

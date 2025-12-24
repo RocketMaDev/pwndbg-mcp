@@ -97,6 +97,7 @@ class AsyncGdbController:
             lambda: GdbController(command=command),
         )
         self.state = GdbState.STOPPED
+        self._started = True
         logger.info(f"GDB started with PTY: {self._pty_name}")
 
     async def execute(
@@ -139,10 +140,15 @@ class AsyncGdbController:
         logger.debug(f"Executing GDB command: {command}")
 
         # Execute in thread pool and parse responses inline
-        responses = await loop.run_in_executor(
-            self._executor,
-            lambda: self._controller.write(command, timeout_sec, raise_error_on_timeout=False),
-        )
+        try:
+            responses = await loop.run_in_executor(
+                self._executor,
+                lambda: self._controller.write(command, timeout_sec, raise_error_on_timeout=False),
+            )
+        except BrokenPipeError:
+            # gdb exited! restart it next time
+            self.state = GdbState.DEAD
+            return [GdbResponse('result', 'GDB exited! run this command again', None)]
 
         parsed_responses.extend(
             GdbResponse(r['type'], r['message'], r['payload']) for r in responses
@@ -182,6 +188,9 @@ class AsyncGdbController:
         for r in parsed_responses:
             logger.info(f'MSG: {r.mitype:9s} {r.message!r}')
 
+        if command == 'quit' or command == 'q':
+            # identify quit to handle it
+            await self.close()
         return parsed_responses
 
 
@@ -210,6 +219,7 @@ class AsyncGdbController:
         def _send_ctrl():
             try:
                 termios.tcsetattr(self._pty_slave, termios.TCSANOW, self._pty_attrs)
+                logger.info(f'Sent {ctrl} to slave')
                 os.write(self._pty_master, ctrl)
             finally:
                 tty.setraw(self._pty_slave)
@@ -218,12 +228,12 @@ class AsyncGdbController:
         await loop.run_in_executor(None, _send_ctrl)
         logger.debug('Interrupting process')
 
-    async def read_from_process(self, size: int = 4096, timeout: int = 5000) -> str | None:
+    async def read_from_process(self, size: int = 4096, timeout: int = 5) -> str | None:
         """Read data from the target process through PTY using poll.
 
         Args:
             size: Maximum bytes to read
-            timeout: Read timeout in seconds
+            timeout: Read timeout in secconds
 
         Returns:
             Data read from process, or empty string on timeout/no data
@@ -232,7 +242,7 @@ class AsyncGdbController:
 
         def _read():
             try:
-                return os.read(self._pty_master, size) if self.poller.poll(timeout) else b''
+                return os.read(self._pty_master, size) if self.poller.poll(timeout * 1000) else b''
             except OSError:
                 return b''
 
@@ -251,26 +261,26 @@ class AsyncGdbController:
         return result
 
     async def close(self) -> None:
-        if self.state is GdbState.DEAD:
+        if not self._started:
             return
-
-        if self._controller:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                self._executor,
-                self._controller.exit,
-            )
-            self._controller = None
-            self._started = False
-            logger.info("GDB controller closed")
-
-        # Close PTY
-        if self._pty_master:
-            os.close(self._pty_master)
-            self._pty_master = None
-        if self._pty_slave:
-            os.close(self._pty_slave)
-            self._pty_slave = None
+        try:
+            if self._controller:
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(
+                    self._executor,
+                    self._controller.exit,
+                )
+                self._controller = None
+                self._started = False
+                logger.info("GDB controller closed")
+        finally:
+            # Close PTY
+            if self._pty_master:
+                os.close(self._pty_master)
+                self._pty_master = None
+            if self._pty_slave:
+                os.close(self._pty_slave)
+                self._pty_slave = None
 
         self._executor.shutdown(wait=True)
         self.state = GdbState.DEAD

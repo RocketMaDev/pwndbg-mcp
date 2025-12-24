@@ -78,7 +78,7 @@ async def send_to_process(data: str) -> str:
         how many bytes sent if successfully sent
     """
     gdb = await may_start_gdb()
-    if all(ch < 0x100 for ch in data):
+    if all(ord(ch) < 0x100 for ch in data):
         await gdb.send_to_process(data.encode('latin1'))
     else:
         await gdb.send_to_process(data.encode())

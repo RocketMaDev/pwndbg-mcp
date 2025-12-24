@@ -38,6 +38,21 @@ class GdbResponse:
             self.message = ANSI_COLOR_RE.sub('', self.message)
 
 
+def update_gdb_state(resps: list[GdbResponse]) -> GdbState | None:
+    """Parse messages from resps to see if gdb state need to update.
+
+    Returns:
+        GdbState if found state (return the last state) or None if not found
+    """
+    cache = None
+    for resp in resps:
+        if resp.mitype is GdbMIType.NOTIFY:
+            match resp.message:
+                case 'running': cache = GdbState.RUNNING
+                case 'stopped': cache = GdbState.STOPPED
+    return cache
+
+
 class AsyncGdbController:
     state: GdbState
 
@@ -80,26 +95,37 @@ class AsyncGdbController:
         self,
         command: str,
         timeout: float | None = None,
-        raise_error: bool = True
     ) -> list[GdbResponse] | None:
         """Execute GDB/MI command asynchronously.
 
         Args:
             command: GDB/MI command to execute
             timeout: Command timeout in seconds (None for default)
-            raise_error: Whether to raise exception on error
 
         Returns:
-            List of parsed GDB responses
+            List of parsed GDB responses or None if gdb is waiting
 
         Raises:
             RuntimeError: If controller not started
-            Exception: If command fails and raise_error is True
         """
+        loop = asyncio.get_event_loop()
+        parsed_responses = []
+        if self.state is GdbState.RUNNING:
+            # perhaps user trigger interupt to stop tracee?
+            responses = await loop.run_in_executor(
+                self._executor,
+                lambda: self._controller.get_gdb_response(1, False)
+            )
+            parsed_responses = [
+                GdbResponse(r['type'], r['message'], r['payload']) for r in responses
+            ]
+            if new_state := update_gdb_state(parsed_responses):
+                self.state = new_state
+                logger.debug(f'New state: {self.state}')
+
         if self.state is not GdbState.STOPPED:
             return None
 
-        loop = asyncio.get_event_loop()
         timeout_sec = timeout if timeout is not None else self.timeout
 
         logger.debug(f"Executing GDB command: {command}")
@@ -107,17 +133,14 @@ class AsyncGdbController:
         # Execute in thread pool and parse responses inline
         responses = await loop.run_in_executor(
             self._executor,
-            lambda: self._controller.write(command, timeout_sec=timeout_sec),
+            lambda: self._controller.write(command, timeout_sec, raise_error_on_timeout=False),
         )
 
-        parsed_responses = [
-            GdbResponse(
-                mitype=r.get("type"),
-                message=r.get("message"),
-                payload=r.get("payload"),
-            )
-            for r in responses
-        ]
+        parsed_responses.extend(
+            GdbResponse(r['type'], r['message'], r['payload']) for r in responses
+        )
+
+        # merge disconnected lines and remove \n
         cache = ''
         pop_list = []
         for i, r in enumerate(parsed_responses):
@@ -135,15 +158,12 @@ class AsyncGdbController:
         for i in pop_list:
             parsed_responses.pop(i)
 
-        for r in parsed_responses:
-            logger.info(f'MSG: {r}')
+        if new_state := update_gdb_state(parsed_responses):
+            self.state = new_state
+            logger.debug(f'New state: {self.state}')
 
-        # Error handling
-        if raise_error:
-            for resp in parsed_responses:
-                if resp.mitype == "result" and resp.message == "error":
-                    error_msg = resp.payload.get("msg", "Unknown GDB error") if resp.payload else "Unknown GDB error"
-                    raise Exception(f"GDB error: {error_msg}")
+        for r in parsed_responses:
+            logger.info(f'MSG: {r.mitype:9s} {r.message}')
 
         return parsed_responses
 

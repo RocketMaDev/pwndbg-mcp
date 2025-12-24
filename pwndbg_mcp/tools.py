@@ -1,5 +1,5 @@
 import logging
-from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState
+from pwndbg_mcp.gdb_controller import AsyncGdbController
 from pwndbg_mcp.toon_formatter import ToonFormatter
 from pwn import *
 
@@ -36,7 +36,7 @@ async def load_executable(executable_path: str, args: list[str] | None = None) -
         args: Command-line arguments for the program
 
     Returns:
-        TOON-formatted result
+        TOON-formatted GDB responses
     """
     gdb = await may_start_gdb()
     logging.info(f'{gdb}')
@@ -60,7 +60,7 @@ async def execute_command(command: str) -> str:
         command: GDB command to execute, use ` ` to split args
 
     Returns:
-        TOON-formatted GDB responses
+        TOON-formatted GDB responses or null if GDB is waiting tracee
     """
     gdb = await may_start_gdb()
     responses = await gdb.execute(command, raise_error=False)

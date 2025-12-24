@@ -144,18 +144,27 @@ class AsyncGdbController:
         cache = ''
         pop_list = []
         for i, r in enumerate(parsed_responses):
-            if r.mitype is GdbMIType.CONSOLE and not r.message.endswith('\n'):
-                cache += r.message
-                pop_list.append(i)
-            if r.mitype is GdbMIType.CONSOLE and r.message.endswith('\n'):
-                if cache:
-                    r.message = cache + r.message
-                    cache = ''
-                r.message = r.message.strip()
+            match r.mitype:
+                case GdbMIType.CONSOLE:
+                    if not r.message.endswith('\n'):
+                        cache += r.message
+                        pop_list.append(i)
+                    else:
+                        if cache:
+                            r.message = cache + r.message
+                            cache = ''
+                        r.message = r.message.strip()
+                case GdbMIType.LOG:
+                    r.message = r.message.strip()
+                case GdbMIType.NOTIFY:
+                    if r.message == 'cmd-param-changed':
+                        pop_list.append(i)
+                case GdbMIType.RESULT:
+                    pop_list.append(i)
         if cache:
             parsed_responses[pop_list[-1]].message = cache.strip()
             pop_list.pop(-1)
-        for i in pop_list:
+        for i in reversed(pop_list):
             parsed_responses.pop(i)
 
         if new_state := update_gdb_state(parsed_responses):
@@ -163,7 +172,7 @@ class AsyncGdbController:
             logger.debug(f'New state: {self.state}')
 
         for r in parsed_responses:
-            logger.info(f'MSG: {r.mitype:9s} {r.message}')
+            logger.info(f'MSG: {r.mitype:9s} {r.message!r}')
 
         return parsed_responses
 

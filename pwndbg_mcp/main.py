@@ -14,7 +14,6 @@ if __name__ == '__main__':
         help='pwndbg binary to launch (default: gdb)')
     args = parser.parse_args()
     cast(str, args.transport)
-    cast(bool, args.unsafe)
     tools.gdb_path = args.pwndbg
 
     match args.transport:

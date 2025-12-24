@@ -25,7 +25,7 @@ class ToonFormatter:
             "output": [
                 { 'type': r.mitype, 'msg': r.message }
                 for r in responses
-            ],
+            ] if responses else responses, # pass through None
         }
 
         return encode(result)

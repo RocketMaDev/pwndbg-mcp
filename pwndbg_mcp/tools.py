@@ -52,7 +52,6 @@ async def load_executable(executable_path: str, args: list[str] | None = None) -
     return ToonFormatter.format_response(responses, f"load {executable_path}")
 
 
-@mcp.tool()
 async def execute_command(command: str) -> str:
     """Execute an arbitrary GDB command.
 
@@ -63,7 +62,7 @@ async def execute_command(command: str) -> str:
         TOON-formatted GDB responses or null if GDB is waiting tracee
     """
     gdb = await may_start_gdb()
-    responses = await gdb.execute(command, raise_error=False)
+    responses = await gdb.execute(command)
     return ToonFormatter.format_response(responses, command)
 
 
@@ -241,4 +240,5 @@ async def vmmap() -> str:
     return await execute_command("vmmap")
 
 def launch_mcp(mode: str, host: str | None = None, port: int | None = None):
+    mcp.tool(execute_command)
     mcp.run(mode, host=host, port=port)

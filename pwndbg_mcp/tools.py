@@ -85,6 +85,7 @@ async def send_to_process(data: str) -> str:
         await gdb.send_to_process(data.encode())
     return ToonFormatter.format_simple(f"Sent {len(data)} chars to process")
 
+@mcp.tool()
 async def eval_to_send_to_process(statement: str) -> str:
     """Given `statement`, evaluate it in Python and `bytes()` it,
     then send to process. This tool is not that safe.
@@ -239,8 +240,5 @@ async def vmmap() -> str:
     """
     return await execute_command("vmmap")
 
-def launch_mcp(mode: str, host: str | None = None, port: int | None = None,
-               unsafe: bool = False):
-    if unsafe:
-        mcp.tool(eval_to_send_to_process)
+def launch_mcp(mode: str, host: str | None = None, port: int | None = None):
     mcp.run(mode, host=host, port=port)

@@ -12,9 +12,6 @@ if __name__ == '__main__':
         help='Port for HTTP/SSE modes (default: 8780)')
     parser.add_argument('--pwndbg', '-b', default='gdb',
         help='pwndbg binary to launch (default: gdb)')
-    parser.add_argument('--unsafe', '-U', action='store_true',
-        help='Allow mcp to run eval() to send request like pwntools, '
-             'ONLY ENABLE THIS IF YOU DID ISOLATION!')
     args = parser.parse_args()
     cast(str, args.transport)
     cast(bool, args.unsafe)
@@ -22,8 +19,8 @@ if __name__ == '__main__':
 
     match args.transport:
         case 'stdio':
-            tools.launch_mcp(args.transport, unsafe=args.unsafe)
+            tools.launch_mcp(args.transport)
         case 'http' | 'sse':
-            tools.launch_mcp(args.transport, args.host, args.port, unsafe=args.unsafe)
+            tools.launch_mcp(args.transport, args.host, args.port)
         case trans:
             assert not f'Unknown transport {trans}'

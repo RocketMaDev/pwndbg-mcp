@@ -69,7 +69,7 @@ async def execute_command(command: str) -> str:
 # process controller part
 @mcp.tool()
 async def send_to_process(data: str) -> str:
-    """Send data to the target process through PTY.
+    """Send data to the target process through PTY in raw mode.
 
     Args:
         data: String to send to the process
@@ -79,10 +79,11 @@ async def send_to_process(data: str) -> str:
     """
     gdb = await may_start_gdb()
     if all(ord(ch) < 0x100 for ch in data):
-        await gdb.send_to_process(data.encode('latin1'))
+        tosend = data.encode('latin1')
     else:
-        await gdb.send_to_process(data.encode())
-    return ToonFormatter.format_simple(f"Sent {len(data)} chars to process")
+        tosend = data.encode()
+    await gdb.send_to_process(tosend)
+    return ToonFormatter.format_simple(f"Sent {len(data)} bytes to process")
 
 @mcp.tool()
 async def eval_to_send_to_process(statement: str) -> str:
@@ -130,13 +131,25 @@ async def read_from_process(size: int = 1024, timeout: float = 1.0) -> str:
     data = await gdb.read_from_process(size, timeout)
     return ToonFormatter.format_simple(data)
 
+CTRL_MAP = {
+    'C-c': (b'\x03', 'SIGINT'),
+    'C-d': (b'\x04', 'EOF'),
+    'C-z': (b'\x1a', 'SIGTSTP'),
+}
 @mcp.tool()
-async def interrupt_process() -> str:
+async def interrupt_process(ctrl: str | None = None) -> str:
     """Interrupt target process through PTY. Equivalent to press Ctrl-C
+
+    Args:
+        ctrl: Default is "Ctrl-C". Any of "C-c", "C-z" or "C-d"
     """
     gdb = await may_start_gdb()
-    await gdb.interrupt_process()
-    return ToonFormatter.format_simple('Interrupt request sent')
+    tosend = CTRL_MAP.get(ctrl if ctrl is not None else 'C-c', None)
+    if tosend:
+        await gdb.interrupt_process(tosend[0])
+        return ToonFormatter.format_simple(f'Interrupt request {tosend[1]} sent')
+
+    return ToonFormatter.format_simple({'error': 'No such ctrl char'})
 
 @mcp.tool()
 async def pwndbg_status() -> str:

@@ -6,6 +6,8 @@ import logging
 import os
 import select
 import pty
+import tty
+import termios
 from hexdump import hexdump
 from enum import StrEnum
 import re
@@ -77,6 +79,12 @@ class AsyncGdbController:
         self._pty_master, self._pty_slave = pty.openpty()
         self._pty_name = os.ttyname(self._pty_slave)
         logger.debug(f"Created PTY: master={self._pty_master}, slave={self._pty_name}")
+
+        # save original slave attr, except ECHO, so we can restore it when sending signal
+        self._pty_attrs: termios._Attr = termios.tcgetattr(self._pty_slave)
+        self._pty_attrs[3] &= ~termios.ECHO
+        tty.setraw(self._pty_slave)
+        tty.setraw(self._pty_master)
 
         self.poller = select.poll()
         self.poller.register(self._pty_master, select.EPOLLIN)
@@ -193,17 +201,21 @@ class AsyncGdbController:
         )
         logger.debug(f"Sent to process: {data}")
 
-    async def interrupt_process(self) -> None:
+    async def interrupt_process(self, ctrl: bytes) -> None:
         """Interrupt target process by sending \\x03 to pty
         """
         if not self._pty_master:
             raise RuntimeError("PTY not available")
 
+        def _send_ctrl():
+            try:
+                termios.tcsetattr(self._pty_slave, termios.TCSANOW, self._pty_attrs)
+                os.write(self._pty_master, ctrl)
+            finally:
+                tty.setraw(self._pty_slave)
+
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None,
-            lambda: os.write(self._pty_master, b'\x03')
-        )
+        await loop.run_in_executor(None, _send_ctrl)
         logger.debug('Interrupting process')
 
     async def read_from_process(self, size: int = 4096, timeout: int = 5000) -> str | None:

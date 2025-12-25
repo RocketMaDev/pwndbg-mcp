@@ -32,7 +32,7 @@ $ uv tool install .
 $ cd /what/ever/path/you/want && pwndbg-mcp
 ```
 
-> [!CAUTION] SECURITY NOTICE
+> [!CAUTION]
 > **DON'T EXPOSE YOUR MCP SERVICE TO PUBLIC IF YOU DON'T DO ISOLATION!**
 > The tool `load_executable`, `execute_command` (GDB command) and `eval_to_send_to_process`
 > may lead to remote code execution.

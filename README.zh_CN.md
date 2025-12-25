@@ -27,7 +27,7 @@ $ uv tool install .
 $ cd /what/ever/path/you/want && pwndbg-mcp
 ```
 
-> [!CAUTION] 安全提示
+> [!CAUTION]
 > **如果你没有做隔离，千万不要将你的 MCP 服务暴露出去**
 > 工具 `load_executable`、`execute_command`（GDB 命令）以及 `eval_to_send_to_process`
 > 可能会导致任意代码执行。

@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-pwndbg-mcp = "pwndbg_mcp.server:main"
+pwndbg-mcp = "pwndbg_mcp.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pwndbg_mcp"]

@@ -2,7 +2,7 @@ import argparse
 from typing import cast
 from pwndbg_mcp import tools
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='pwndbg-mcp: MCP server for pwndbg debugging')
     parser.add_argument('--transport', '-t', choices=['stdio', 'http', 'sse'], default='http',
         help='Transport mode: stdio, http (streamable HTTP, default), or sse')
@@ -23,3 +23,7 @@ if __name__ == '__main__':
             tools.launch_mcp(args.transport, args.host, args.port)
         case trans:
             assert not f'Unknown transport {trans}'
+
+
+if __name__ == '__main__':
+    main()

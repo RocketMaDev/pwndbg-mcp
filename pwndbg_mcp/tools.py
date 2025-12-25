@@ -2,10 +2,50 @@ import logging
 from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState
 from pwndbg_mcp.toon_formatter import format_response, format_simple
 from pwn import *
+from dataclasses import dataclass
 
 from fastmcp import FastMCP
 
 mcp = FastMCP('pwndbg-mcp')
+
+@dataclass
+class D2dSetup:
+    name: str
+    host: str | None
+    port: int | None
+    error: str | None
+
+    def __init__(self, d2dname: str, d2dhost: str | None) -> None:
+        self.error = None
+        if not d2dname.isalnum():
+            self.error = 'decomp2dbg section name only accept alphanumeric names'
+            return
+        self.name = d2dname
+        if not d2dhost:
+            self.host, self.port = None, None
+        elif d2dhost.isdecimal():
+            self.host, self.port = None, int(d2dhost)
+        else:
+            pair = d2dhost.split(':')
+            if len(pair) != 2:
+                self.error = 'd2dhost should be either HOST:PORT or PORT'
+                return
+            if not pair[1].isdecimal():
+                self.error = 'Invalid port in d2dhost'
+                return
+            if not pair[0]:
+                self.error = 'Host is empty in d2dhost'
+                return
+            self.host, self.port = pair
+
+    def __str__(self) -> str:
+        if self.host:
+            return f'{self.name} --host {self.host} --port {self.port}'
+        if self.port:
+            return f'{self.name} --port {self.port}'
+        return self.name
+
+d2d_setup: D2dSetup | None = None
 
 # Configure logging
 logging.basicConfig(
@@ -90,6 +130,16 @@ async def debug_control(action: str) -> str:
     if action in AVAILABLE_ACTIONS:
         return await execute_command(action)
     return format_simple({'error': 'Unknown state action. Take a look at documentation'})
+
+async def connect_decomp2dbg() -> str:
+    """Try to connect to decomp2dbg bridge with setup provided in cli. Requires
+    decomp2dbg loaded into GDB and have a started debug.
+
+    Returns:
+        GDB responses
+    """
+    assert d2d_setup
+    return await execute_command(f'decompiler connect {d2d_setup}')
 
 # process controller part
 @mcp.tool(output_schema=None)
@@ -294,4 +344,6 @@ async def xinfo(statement: str) -> str:
 
 def launch_mcp(mode: str, host: str | None = None, port: int | None = None):
     mcp.tool(execute_command, output_schema=None)
+    if d2d_setup:
+        mcp.tool(connect_decomp2dbg, output_schema=None)
     mcp.run(mode, host=host, port=port)

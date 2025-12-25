@@ -1,6 +1,7 @@
 import argparse
 from typing import cast
 from pwndbg_mcp import tools
+import sys
 
 DESC = 'An MCP tool endows AI agent with the capability to debug ELF'
 
@@ -14,9 +15,21 @@ def main():
         help='Port for HTTP/SSE modes (default: 8780)')
     parser.add_argument('--pwndbg', '-b', default='gdb',
         help='pwndbg binary to launch (default: gdb)')
+    parser.add_argument('--d2dname', '-d',
+        help='Decomp2dbg section display name. Set this to enable decomp2dbg support.')
+    parser.add_argument('--d2dhost', '-D',
+        help='Decomp2dbg connection. Place a number as PORT, or HOST:PORT.')
     args = parser.parse_args()
     cast(str, args.transport)
+    cast(str, args.d2dname)
     tools.gdb_path = args.pwndbg
+
+    if args.d2dname:
+        setup = tools.D2dSetup(args.d2dname, args.d2dhost)
+        if setup.error:
+            print(setup.error)
+            sys.exit(1)
+        tools.d2d_setup = setup
 
     match args.transport:
         case 'stdio':

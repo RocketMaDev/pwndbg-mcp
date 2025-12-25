@@ -250,9 +250,10 @@ class AsyncGdbController:
         if not data:
             logger.debug('Process has no output currently')
             return None
-        if all(b >= 32 or b == 0xd or b == 0xa for b in data):
+        if all(b >= 32 or b == 0xd or b == 0xa or b == 0x1b for b in data):
             try:
                 result = data.decode('utf-8')
+                result = result.replace('\x1b', '^[')
             except UnicodeDecodeError as _:
                 result = hexdump(data, 'return')
         else:

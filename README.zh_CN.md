@@ -69,6 +69,7 @@ $ bwrap --ro-bind / / --overlay-src ~ --tmp-overlay ~ --dev-bind /dev /dev --pro
     2. `execute_command`
     3. `pwndbg_status` （可能不准确）
     4. `debug_control`
+    5. `connect_decomp2dbg`
 - 与进程通信
     1. `send_to_process`
     2. `eval_to_send_to_process` （能够访问 pwntools）
@@ -106,7 +107,7 @@ $ bwrap --ro-bind / / --overlay-src ~ --tmp-overlay ~ --dev-bind /dev /dev --pro
 
 请点击 **:star: STAR** 以及开 Issue（但是不要发送垃圾信息）来推动我开发这些新功能！
 
-- [ ] 整合 [decomp2dbg](https://github.com/mahaloz/decomp2dbg)
+- [x] 整合 [decomp2dbg](https://github.com/mahaloz/decomp2dbg)
 - [ ] 整合 pwntools (`gdb.debug`/`gdb.attach`)
 - [ ] 连接本地进程调试（未测试）
 - [ ] 连接远程 gdbserver（未测试）

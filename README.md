@@ -75,6 +75,7 @@ $ bwrap --ro-bind / / --overlay-src ~ --tmp-overlay ~ --dev-bind /dev /dev --pro
     2. `execute_command`
     3. `pwndbg_status` (may be incorrect)
     4. `debug_control`
+    5. `connect_decomp2dbg`
 - Interact with process
     1. `send_to_process`
     2. `eval_to_send_to_process` (has access to pwntools)
@@ -113,7 +114,7 @@ and has some advantages and disadvantages.
 Please click **:star: STAR** and open issues (but don't spam) to push me developing
 these excellent features!
 
-- [ ] Integrate with [decomp2dbg](https://github.com/mahaloz/decomp2dbg)
+- [x] Integrate with [decomp2dbg](https://github.com/mahaloz/decomp2dbg)
 - [ ] Integrate with pwntools (`gdb.debug`/`gdb.attach`)
 - [ ] Attach to local process (untested)
 - [ ] Attach to remote gdbserver (untested)

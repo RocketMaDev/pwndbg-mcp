@@ -70,6 +70,26 @@ async def execute_command(command: str) -> str:
     responses = await gdb.execute(command)
     return format_response(responses, command)
 
+AVAILABLE_ACTIONS = [
+    'c', 'n', 'r', 's', 'kill', 'fin', 'ni', 'si', 'entry', 'start',
+    'sstart', 'nextcall', 'nextjmp', 'nextret', 'nextsyscall', 'nextproginstr',
+    'stepover', 'stepret', 'strpsyscall', 'stepuntilasm', 'xuntil',
+]
+@mcp.tool(output_schema=None)
+async def debug_control(action: str) -> str:
+    """Control tracee running state by step, next or finish, etc. Use this prior
+    than running individual execute_command to separate state control and actual command.
+
+    Args:
+        action: Any of 'c', 'n', 'r', 's', 'kill', 'fin', 'ni', 'si', 'entry', 'start',
+        'sstart', 'nextcall', 'nextjmp', 'nextret', 'nextsyscall', 'nextproginstr',
+        'stepover', 'stepret', 'strpsyscall', 'stepuntilasm', 'xuntil'
+    Returns:
+        GDB responses or null if GDB is waiting tracee
+    """
+    if action in AVAILABLE_ACTIONS:
+        return await execute_command(action)
+    return format_simple({'error': 'Unknown state action. Take a look at documentation'})
 
 # process controller part
 @mcp.tool(output_schema=None)
@@ -143,7 +163,7 @@ CTRL_MAP = {
 }
 @mcp.tool(output_schema=None)
 async def interrupt_process(ctrl: str | None = None) -> str:
-    """Interrupt target process through PTY. Equivalent to press Ctrl-C
+    """Interrupt target process through PTY. Equivalent to press Ctrl-C, Ctrl-Z or Ctrl-D
 
     Args:
         ctrl: Default is "Ctrl-C". Any of "C-c", "C-z" or "C-d"

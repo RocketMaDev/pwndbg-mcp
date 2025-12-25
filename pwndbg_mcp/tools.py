@@ -1,6 +1,6 @@
 import logging
 from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState
-from pwndbg_mcp.toon_formatter import ToonFormatter
+from pwndbg_mcp.toon_formatter import format_response, format_simple
 from pwn import *
 
 from fastmcp import FastMCP
@@ -54,7 +54,7 @@ async def load_executable(executable_path: str, args: list[str] | None = None) -
         args_str = " ".join(args)
         await gdb.execute(f'-exec-arguments {args_str}')
 
-    return ToonFormatter.format_response(responses, f"load {executable_path}")
+    return format_response(responses, f"load {executable_path}")
 
 
 async def execute_command(command: str) -> str:
@@ -68,7 +68,7 @@ async def execute_command(command: str) -> str:
     """
     gdb = await may_start_gdb()
     responses = await gdb.execute(command)
-    return ToonFormatter.format_response(responses, command)
+    return format_response(responses, command)
 
 
 # process controller part
@@ -88,7 +88,7 @@ async def send_to_process(data: str) -> str:
     else:
         tosend = data.encode()
     await gdb.send_to_process(tosend)
-    return ToonFormatter.format_simple(f"Sent {len(data)} bytes to process")
+    return format_simple(f"Sent {len(data)} bytes to process")
 
 @mcp.tool(output_schema=None)
 async def eval_to_send_to_process(statement: str) -> str:
@@ -107,16 +107,16 @@ async def eval_to_send_to_process(statement: str) -> str:
     try:
         result = eval(statement)
     except Exception as e:
-        return ToonFormatter.format_simple({'status': 'error',
+        return format_simple({'status': 'error',
             'detail': f'Can not eval statement, raised {e}'})
     try:
         bytes_result = bytes(result)
     except Exception as e:
-        return ToonFormatter.format_simple({'status': 'error',
+        return format_simple({'status': 'error',
             'detail': f"Can not convert eval'ed result to bytes, raised {e}"})
 
     await gdb.send_to_process(bytes_result)
-    return ToonFormatter.format_simple({'status': 'success',
+    return format_simple({'status': 'success',
             'detail': str(result)})
 
 @mcp.tool(output_schema=None)
@@ -134,7 +134,7 @@ async def read_from_process(size: int = 1024, timeout: int = 5) -> str:
     """
     gdb = await may_start_gdb()
     data = await gdb.read_from_process(size, timeout)
-    return ToonFormatter.format_simple(data)
+    return format_simple(data)
 
 CTRL_MAP = {
     'C-c': (b'\x03', 'SIGINT'),
@@ -152,9 +152,9 @@ async def interrupt_process(ctrl: str | None = None) -> str:
     tosend = CTRL_MAP.get(ctrl if ctrl is not None else 'C-c', None)
     if tosend:
         await gdb.interrupt_process(tosend[0])
-        return ToonFormatter.format_simple(f'Interrupt request {tosend[1]} sent')
+        return format_simple(f'Interrupt request {tosend[1]} sent')
 
-    return ToonFormatter.format_simple({'error': 'No such ctrl char'})
+    return format_simple({'error': 'No such ctrl char'})
 
 @mcp.tool(output_schema=None)
 async def pwndbg_status() -> str:
@@ -164,7 +164,7 @@ async def pwndbg_status() -> str:
         TOON-formatted gdb status
     """
     gdb = await may_start_gdb()
-    return ToonFormatter.format_simple({"gdb": gdb.state})
+    return format_simple({"gdb": gdb.state})
 
 
 ###########################################################

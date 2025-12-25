@@ -249,13 +249,28 @@ async def procinfo() -> str:
     return await execute_command("procinfo")
 
 @mcp.tool(output_schema=None)
-async def vmmap() -> str:
-    """Display current program memory layout
+async def vmmap(pattern: str | None = None) -> str:
+    """Display current program memory layout or pages match pattern
 
+    Args:
+        pattern: match the name of page, e.g. libc
     Returns:
         maps layout or null if pwndbg waiting
     """
+    if pattern:
+        return await execute_command(f'vmmap {pattern}')
     return await execute_command("vmmap")
+
+@mcp.tool(output_schema=None)
+async def xinfo(statement: str) -> str:
+    """Shows offsets of the specified address from various useful locations
+
+    Args:
+        statement: address or statement that can be eval'ed to address
+    Returns:
+        Related address offsets or null if pwndbg waiting
+    """
+    return await execute_command(f'xinfo {statement}')
 
 def launch_mcp(mode: str, host: str | None = None, port: int | None = None):
     mcp.tool(execute_command, output_schema=None)

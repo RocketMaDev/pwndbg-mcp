@@ -2,8 +2,10 @@ import argparse
 from typing import cast
 from pwndbg_mcp import tools
 
+DESC = 'An MCP tool endows AI agent with the capability to debug ELF'
+
 def main():
-    parser = argparse.ArgumentParser(description='pwndbg-mcp: MCP server for pwndbg debugging')
+    parser = argparse.ArgumentParser(description=f'pwndbg-mcp: {DESC}')
     parser.add_argument('--transport', '-t', choices=['stdio', 'http', 'sse'], default='http',
         help='Transport mode: stdio, http (streamable HTTP, default), or sse')
     parser.add_argument('--host', '-H', default='localhost',

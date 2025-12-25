@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pwndbg-mcp"
 version = "0.1.0"
-description = "MCP server that exposes pwndbg debugging capabilities to AI assistants"
+description = "An MCP tool endows AI agent with the capability to debug ELF"
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=0.2.0",

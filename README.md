@@ -119,6 +119,7 @@ and has some advantages and disadvantages.
 1. All communication are encapsulated and user can not observe gdb status
 2. This project targets local debugging, thus each instance only keep one GDB session
 3. Focused on debugging, requires other MCP to work together, e.g. IDA Pro MCP
+4. Sometimes Ctrl-C kills process or can't wake up GDB. No idea how this happens
 
 ## Future roadmap
 

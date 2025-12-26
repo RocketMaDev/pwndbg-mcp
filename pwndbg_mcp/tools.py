@@ -1,7 +1,9 @@
-import logging
 from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState
 from pwndbg_mcp.toon_formatter import format_response, format_simple
 from pwn import *
+import logging
+import socket
+from concurrent import futures
 from dataclasses import dataclass
 
 from fastmcp import FastMCP
@@ -13,30 +15,27 @@ class D2dSetup:
     name: str
     host: str | None
     port: int | None
-    error: str | None
 
-    def __init__(self, d2dname: str, d2dhost: str | None) -> None:
-        self.error = None
+    def __init__(self, d2dname: str, d2dhost: str | None, d2dport: int | None) -> None:
         if not d2dname.isalnum():
-            self.error = 'decomp2dbg section name only accept alphanumeric names'
-            return
+            raise RuntimeError('decomp2dbg section name only accept alphanumeric names')
         self.name = d2dname
-        if not d2dhost:
-            self.host, self.port = None, None
-        elif d2dhost.isdecimal():
-            self.host, self.port = None, int(d2dhost)
-        else:
-            pair = d2dhost.split(':')
-            if len(pair) != 2:
-                self.error = 'd2dhost should be either HOST:PORT or PORT'
-                return
-            if not pair[1].isdecimal():
-                self.error = 'Invalid port in d2dhost'
-                return
-            if not pair[0]:
-                self.error = 'Host is empty in d2dhost'
-                return
-            self.host, self.port = pair
+        if d2dhost:
+            with futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(socket.getaddrinfo, d2dhost, None)
+                try:
+                    future.result(timeout=3)
+                except futures.TimeoutError:
+                    raise RuntimeError('Resolve d2dhost timeout, perhaps use a ip address') from None
+                except socket.gaierror as e:
+                    raise RuntimeError('Can not resolve d2dhost') from e
+        elif not d2dhost:
+            d2dhost = None
+        self.host = d2dhost
+
+        if d2dport and (d2dport < 1 or d2dport > 65535):
+            raise RuntimeError(f'Invalid decomp2dbg port {d2dport}')
+        self.port = d2dport
 
     def __str__(self) -> str:
         if self.host:

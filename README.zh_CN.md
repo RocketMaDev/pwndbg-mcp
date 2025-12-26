@@ -75,6 +75,7 @@ $ bwrap --ro-bind / / --overlay-src ~ --tmp-overlay ~ --dev-bind /dev /dev --pro
     3. `pwndbg_status` （可能不准确）
     4. `debug_control`
     5. `connect_decomp2dbg`
+    6. `pwndbg_hard_reset`
 - 与进程通信
     1. `send_to_process`
     2. `eval_to_send_to_process` （能够访问 pwntools）

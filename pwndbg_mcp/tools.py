@@ -1,4 +1,4 @@
-from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState
+from pwndbg_mcp.gdb_controller import AsyncGdbController, GdbState, update_gdb_state, process_responses
 from pwndbg_mcp.toon_formatter import format_response, format_simple
 from pwn import *
 import logging
@@ -227,14 +227,37 @@ async def interrupt_process(ctrl: str | None = None) -> str:
 
 @mcp.tool(output_schema=None)
 async def pwndbg_status() -> str:
-    """Return gdb status
+    """Return GDB status and additional GDB messages if some new messages
+    available since last execute
 
     Returns:
-        TOON-formatted gdb status
+        TOON-formatted GDB status and GDB responses if available
     """
     gdb = await may_start_gdb()
-    return format_simple({"gdb": gdb.state})
+    if gdb.state is not GdbState.RUNNING:
+        return format_simple({"gdb": gdb.state})
 
+    resps = await gdb.get_responses()
+    if not resps:
+        return format_simple({"gdb": gdb.state})
+    if new_state := update_gdb_state(resps):
+        gdb.state = new_state
+    process_responses(resps)
+    return format_response(resps, f'gdb now has state {new_state}')
+
+
+@mcp.tool(output_schema=None)
+async def pwndbg_hard_reset() -> str:
+    """Hard reset pwndbg status by reset gdb controller. If interrupt can not stop process,
+    call this to restart debug session.
+
+    Returns:
+        New gdb message
+    """
+    gdb = await may_start_gdb()
+    await gdb.close()
+    await may_start_gdb()
+    return format_simple('success')
 
 ###########################################################
 # some aliases

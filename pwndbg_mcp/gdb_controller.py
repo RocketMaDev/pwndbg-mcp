@@ -54,6 +54,41 @@ def update_gdb_state(resps: list[GdbResponse]) -> GdbState | None:
                 case 'stopped': cache = GdbState.STOPPED
     return cache
 
+def process_responses(resps: list[GdbResponse]) -> bool:
+        """Remove useless entry in responses and join some lines
+
+        Returns:
+            If seen 'result: done' in response
+        """
+        cache = ''
+        pop_list = []
+        done = False
+        for i, r in enumerate(resps):
+            match r.mitype:
+                case GdbMIType.CONSOLE:
+                    if not r.message.endswith('\n'):
+                        cache += r.message
+                        pop_list.append(i)
+                    else:
+                        if cache:
+                            r.message = cache + r.message
+                            cache = ''
+                        r.message = r.message.strip()
+                case GdbMIType.LOG:
+                    r.message = r.message.strip()
+                case GdbMIType.NOTIFY:
+                    if r.message == 'cmd-param-changed':
+                        pop_list.append(i)
+                case GdbMIType.RESULT:
+                    if r.message == 'done':
+                        done = True
+                    pop_list.append(i)
+        if cache:
+            resps[pop_list[-1]].message = cache.strip()
+            pop_list.pop(-1)
+        for i in reversed(pop_list):
+            resps.pop(i)
+        return done
 
 class AsyncGdbController:
     state: GdbState
@@ -100,6 +135,24 @@ class AsyncGdbController:
         self._started = True
         logger.info(f"GDB started with PTY: {self._pty_name}")
 
+    async def get_responses(self, timeout: float = 1) -> list[GdbResponse]:
+        """Try to fetch GDB responses from GDB.
+
+        Args:
+            timeout: seconds to wait for messages
+        Returns:
+            [] if no message, or list of responses. Raw responses.
+        """
+        loop = asyncio.get_event_loop()
+        messages = await loop.run_in_executor(
+            self._executor,
+            lambda: self._controller.get_gdb_response(timeout, False),
+        )
+        return [
+            GdbResponse(r['type'], r['message'], r['payload']) for r in messages
+        ]
+
+
     async def execute(
         self,
         command: str,
@@ -113,7 +166,6 @@ class AsyncGdbController:
 
         Returns:
             List of parsed GDB responses or None if gdb is waiting
-
         Raises:
             RuntimeError: If controller not started
         """
@@ -121,13 +173,7 @@ class AsyncGdbController:
         parsed_responses = []
         if self.state is GdbState.RUNNING:
             # perhaps user trigger interupt to stop tracee?
-            responses = await loop.run_in_executor(
-                self._executor,
-                lambda: self._controller.get_gdb_response(1, False)
-            )
-            parsed_responses = [
-                GdbResponse(r['type'], r['message'], r['payload']) for r in responses
-            ]
+            parsed_responses = await self.get_responses()
             if new_state := update_gdb_state(parsed_responses):
                 self.state = new_state
                 logger.debug(f'New state: {self.state}')
@@ -154,32 +200,7 @@ class AsyncGdbController:
             GdbResponse(r['type'], r['message'], r['payload']) for r in responses
         )
 
-        # merge disconnected lines and remove \n
-        cache = ''
-        pop_list = []
-        for i, r in enumerate(parsed_responses):
-            match r.mitype:
-                case GdbMIType.CONSOLE:
-                    if not r.message.endswith('\n'):
-                        cache += r.message
-                        pop_list.append(i)
-                    else:
-                        if cache:
-                            r.message = cache + r.message
-                            cache = ''
-                        r.message = r.message.strip()
-                case GdbMIType.LOG:
-                    r.message = r.message.strip()
-                case GdbMIType.NOTIFY:
-                    if r.message == 'cmd-param-changed':
-                        pop_list.append(i)
-                case GdbMIType.RESULT:
-                    pop_list.append(i)
-        if cache:
-            parsed_responses[pop_list[-1]].message = cache.strip()
-            pop_list.pop(-1)
-        for i in reversed(pop_list):
-            parsed_responses.pop(i)
+        done = process_responses(parsed_responses)
 
         if new_state := update_gdb_state(parsed_responses):
             self.state = new_state
@@ -187,6 +208,7 @@ class AsyncGdbController:
 
         for r in parsed_responses:
             logger.info(f'MSG: {r.mitype:9s} {r.message!r}')
+        logger.info(f'If we see done? {done}')
 
         if command == 'quit' or command == 'q':
             # identify quit to handle it

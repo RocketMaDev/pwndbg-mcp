@@ -72,6 +72,10 @@ systems, start a new pid namespace and finally start a bash.
 ```bash
 $ bwrap --ro-bind / / --overlay-src ~ --tmp-overlay ~ --dev-bind /dev /dev --proc /proc --tmpfs /tmp --unshare-pid bash
 ```
+## Screenshot
+
+<img width="2560" height="1100" alt="claude code with pwndbg-mcp" src="https://github.com/user-attachments/assets/4ea1508c-9a56-4541-ad93-28c4301dcc62" />
+
 
 ## Preview tools
 

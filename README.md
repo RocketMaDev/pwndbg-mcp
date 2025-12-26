@@ -42,7 +42,7 @@ as main pwndbg binary, `/mcp` as mcp connection end point, and `HTTP streamable`
 Here is some help information:
 
 ```
-usage: pwndbg-mcp [-h] [--transport {stdio,http,sse}] [--host HOST] [--port PORT] [--pwndbg PWNDBG]
+usage: main.py [-h] [--transport {stdio,http,sse}] [--host HOST] [--port PORT] [--pwndbg BIN] [--d2dname NAME] [--d2dhost HOST] [--d2dport PORT]
 
 pwndbg-mcp: An MCP tool endows AI agent with the capability to debug ELF
 
@@ -52,8 +52,13 @@ options:
                         Transport mode: stdio, http (streamable HTTP, default), or sse
   --host HOST, -H HOST  Host for HTTP/SSE modes (default: localhost)
   --port PORT, -p PORT  Port for HTTP/SSE modes (default: 8780)
-  --pwndbg PWNDBG, -b PWNDBG
-                        pwndbg binary to launch (default: gdb)
+  --pwndbg BIN, -b BIN  pwndbg binary to launch (default: gdb)
+  --d2dname NAME, -d NAME
+                        Decomp2dbg section display name. Set this to enable decomp2dbg support
+  --d2dhost HOST, -D HOST
+                        Decomp2dbg connection host
+  --d2dport PORT, -P PORT
+                        Decomp2dbg connection port
 ```
 
 It is recommended to wrap pwndbg-mcp in minimal container like `bwrap` since some agents

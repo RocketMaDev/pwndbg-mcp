@@ -37,7 +37,7 @@ $ cd /what/ever/path/you/want && pwndbg-mcp
 以下是一些帮助信息：
 
 ```
-usage: pwndbg-mcp [-h] [--transport {stdio,http,sse}] [--host HOST] [--port PORT] [--pwndbg PWNDBG]
+usage: main.py [-h] [--transport {stdio,http,sse}] [--host HOST] [--port PORT] [--pwndbg BIN] [--d2dname NAME] [--d2dhost HOST] [--d2dport PORT]
 
 pwndbg-mcp: An MCP tool endows AI agent with the capability to debug ELF
 
@@ -47,8 +47,13 @@ options:
                         Transport mode: stdio, http (streamable HTTP, default), or sse
   --host HOST, -H HOST  Host for HTTP/SSE modes (default: localhost)
   --port PORT, -p PORT  Port for HTTP/SSE modes (default: 8780)
-  --pwndbg PWNDBG, -b PWNDBG
-                        pwndbg binary to launch (default: gdb)
+  --pwndbg BIN, -b BIN  pwndbg binary to launch (default: gdb)
+  --d2dname NAME, -d NAME
+                        Decomp2dbg section display name. Set this to enable decomp2dbg support
+  --d2dhost HOST, -D HOST
+                        Decomp2dbg connection host
+  --d2dport PORT, -P PORT
+                        Decomp2dbg connection port
 ```
 
 由于一些 agent，如 *Claude Code*，会尝试在其工作目录下运行二进制，因此推荐使用 `bwrap`

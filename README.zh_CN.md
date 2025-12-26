@@ -67,6 +67,10 @@ options:
 $ bwrap --ro-bind / / --overlay-src ~ --tmp-overlay ~ --dev-bind /dev /dev --proc /proc --tmpfs /tmp --unshare-pid bash
 ```
 
+## 屏幕截图
+
+<img width="2560" height="1100" alt="claude code with pwndbg-mcp" src="https://github.com/user-attachments/assets/4ea1508c-9a56-4541-ad93-28c4301dcc62" />
+
 ## 工具一览
 
 - GDB 相关

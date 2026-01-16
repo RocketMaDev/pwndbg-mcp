@@ -368,4 +368,7 @@ def launch_mcp(mode: str, host: str | None = None, port: int | None = None):
     mcp.tool(execute_command, output_schema=None)
     if d2d_setup:
         mcp.tool(connect_decomp2dbg, output_schema=None)
-    mcp.run(mode, host=host, port=port)
+    if mode == "stdio":
+        mcp.run(mode)
+    else:
+        mcp.run(mode, host=host, port=port)
